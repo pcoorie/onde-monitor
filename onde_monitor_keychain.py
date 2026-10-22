@@ -37,12 +37,31 @@ def load_env_file(path: Path) -> None:
     """Populate os.environ from a simple KEY=VALUE .env file, if present."""
     if not path.exists():
         return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
+    
+    # Import encryption utilities here to avoid circular imports
+    try:
+        from env_encryption import is_env_file_encrypted, decrypt_env_file
+        # Check if file is encrypted
+        if is_env_file_encrypted(path):
+            # Decrypt and load content
+            with open(path, 'rb') as f:
+                encrypted_content = f.read()
+            decrypted_content = decrypt_env_file(encrypted_content)
+            for line in decrypted_content.splitlines():
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+        else:
+            # Load as normal (backward compatibility)
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+    except Exception as e:
+        print(f"Error loading environment file: {e}")
+        raise
 
 # Load the .env file if it exists (for backwards compatibility or other settings)
 load_env_file(Path(__file__).resolve().parent / ".env")

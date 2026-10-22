@@ -5,38 +5,43 @@ Monitors operator.onde.app for "Auto Search" and sends SMS alerts via ClickSend.
 Uses AppleScript to read the page from your already-running Chrome — no Selenium needed.
 """
 
-import os
-import time
-import logging
+import sys
 import urllib.request
 import json
 import subprocess
-import sys
+import os
+import logging
+import time
 from pathlib import Path
-
-# ── .env loading (no third-party deps) ────────────────────────────────────────
-
 def load_env_file(path: Path) -> None:
     """Populate os.environ from a simple KEY=VALUE .env file, if present."""
+
     if not path.exists():
         return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
 
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            if "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip())
 load_env_file(Path(__file__).resolve().parent / ".env")
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-CLICKSEND_USERNAME = os.environ["CLICKSEND_USERNAME"]
-CLICKSEND_API_KEY  = os.environ["CLICKSEND_API_KEY"]
-SMS_FROM           = "PickMe"          # Registered ClickSend alpha tag
-SMS_RECIPIENTS     = [
-    p.strip() for p in os.environ["SMS_RECIPIENTS"].split(",") if p.strip()
-]
+try:
+    CLICKSEND_USERNAME = os.environ["CLICKSEND_USERNAME"]
+    CLICKSEND_API_KEY  = os.environ["CLICKSEND_API_KEY"]
+    SMS_RECIPIENTS     = [
+        p.strip() for p in os.environ["SMS_RECIPIENTS"].split(",") if p.strip()
+    ]
+    SMS_FROM           = os.environ.get("SMS_FROM", "+1234567890")  # Default fallback number
+except KeyError as e:
+    print(f"Missing required environment variable: {e}")
+    sys.exit(1)
 
 TRIP_URL               = "https://operator.onde.app/"
 
